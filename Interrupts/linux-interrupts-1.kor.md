@@ -20,21 +20,30 @@ We have already heard of the word `interrupt` in several parts of this book. We 
 그리고 나서 우리는 `interrupts`에 대해 더 깊게 파보고, 리눅스 커널에서 `interrupts`를 어떻게 다루는지 공부할 것입니다.
 We will then continue to dig deeper into the details of `interrupts` and how the Linux kernel handles them.
 
+우리가 `interrupt`라는 단어를 처음 접했을 때 생기는 첫 질문은 `interrupt란 무엇일까?`라는 것입니다. Interrupt는 소프트웨어나 하드웨어로 인해 발생하는 CPU의 참여를 필요로 하는 `event`로 의할 수 있습니다. 예를 들면, 키보드의 버튼을 누르면, 우리는 무엇을 기대할까요? 운영체제와 컴퓨터는 키보드 버튼을 누른다음에 무엇을 해야할까요? 문제를 단순화시키기 위해서, 각 주변 장치들은 단 하나의 CPU로의 interrupt line을 가지고 있다고 가정해봅시다. 장치는 CPU로 interrupt 신호를 보내기 위해 interrupt line을 사용할 수 있습니다. 그러나 interrupts는 CPU에 직접적으로 전달되지 않습니다. 오래된 기계에서는, Programmable Interrupt Controller[PIC](http://en.wikipedia.org/wiki/Programmable_interrupt_controller)라는 여러대의 장치로부터 들어오는 여러개의 Interrupt 요청들을 순차적으로 처리하기 위한 별도의 칩이 있습니다. 요즘 기계에는 `APIC`라고 불리는 [Advanced Programmable Interrupt Controller](https://en.wikipedia.org/wiki/Advanced_Programmable_Interrupt_Controller)가 있습니다. `APIC`는 두개의 분리된 장치로 구성됩니다. 
 The first question that arises in our mind when we come across word `interrupt` is `What is an interrupt?` An interrupt is an `event` raised by software or hardware when it needs the CPU's attention. For example, we press a button on the keyboard and what do we expect next? What should the operating system and computer do after this? To simplify matters, assume that each peripheral device has an interrupt line to the CPU. A device can use it to signal an interrupt to the CPU. However, interrupts are not signaled directly to the CPU. In the old machines there was a [PIC](http://en.wikipedia.org/wiki/Programmable_Interrupt_Controller) which is a chip responsible for sequentially processing multiple interrupt requests from multiple devices. In the new machines there is an [Advanced Programmable Interrupt Controller](https://en.wikipedia.org/wiki/Advanced_Programmable_Interrupt_Controller) commonly known as - `APIC`. An `APIC` consists of two separate devices:
 
 * `Local APIC`
 * `I/O APIC`
 
+The first - `Local APIC`는 각 CPU 코어에 있습니다. local APIC는 CPU-특정적인(CPU-Specific) interrupt 설정을 담당합니다. Local APIC는 보통 APIC-timer, 열 센서(thermal sensor) 그리고 기기에 직접 연결되어있는 I/O 장치에서 발생하는 interrupt를 다룹니다. 
 The first - `Local APIC` is located on each CPU core. The local APIC is responsible for handling the CPU-specific interrupt configuration. The local APIC is usually used to manage interrupts from the APIC-timer, thermal sensor and any other such locally connected I/O devices.
 
+The Second - `I/O APIC`는 다중 프로세서 interrupt 관리를 제공합니다. I/O APIC는 CPU 코어들 사이의 외부 interrupt들을 분산시키기 위해 사용됩니다. Local과 I/O APIC들에 대한 자세한 내용은 이번 챕터에서 다룰것입니다. 당신이 이해할 수 있듯이, interrupt는 언제든지 발생할 수 있습니다. Interrupt가 발생하면, 운영체제는 발생한 interrupt를 즉시 처리해야합니다. 그런데 `interrupt를 처리한다`라는 것의 의미는 무엇일까요? Interrupt가 발생할 때, 운영체제는 반드시 다음과 같은 과정을 따라야합니다. 
 The second - `I/O APIC` provides multi-processor interrupt management. It is used to distribute external interrupts among the CPU cores. More about the local and I/O APICs will be covered later in this chapter. As you can understand, interrupts can occur at any time. When an interrupt occurs, the  operating system must handle it immediately. But what does it mean `to handle an interrupt`? When an interrupt occurs, the  operating system must ensure the following steps:
+
+* 커널은 반드시 현재 프로세스의 실행을 멈춰야합니다.(현재 작업을 선점한다)
+* 커널은 반드시 해당 Interrupt의 핸들러와 전송 컨트롤을 찾아야합니다.(Interrupt 핸들러를 실행한다)
+* Interrupt 핸들러가 실행을 완료한 후, Interrupt로 인해 멈춰진 프로세스(Interrupted Process)는 실행을 재개 할 수 있습니다. 
 
 * The kernel must pause execution of the current process; (preempt current task);
 * The kernel must search for the handler of the interrupt and transfer control (execute interrupt handler);
 * After the interrupt handler completes execution, the interrupted process can resume execution.
 
+물론, Interrupt들을 처리하는 과정에는 수많은 복잡한 사항들이 포함되어 있습니다. 그러나 위의 3 단계는 Interrupt 처리 과정의 기본적인 골격을 형성합니다. 
 Of course there are numerous intricacies involved in this procedure of handling interrupts. But the above 3 steps form the basic skeleton of the procedure.
 
+각 Interrupt 핸들러의 주소는 `Interrupt Descriptor Table` 또는 `IDT`라고 불리는 틀별한 장소에서 유지됩니다. 프로세서는 Interrupt나 Exception(예외)의 종류를 인식하기 위해 고유의 숫자를 사용합니다. 이 숫자를 `vector number`라고 부릅니다. Vector number는 `IDT`의 인덱스입니다. Vector number의 갯수는 `0` ~ `255`까지로 정해져있습니다. 리눅스 커널 소스코드에서 다음과 같이 vector number에 대한 범위 체크를 할 수 있습니다.   
 Addresses of each of the interrupt handlers are maintained in a special location referred to as the - `Interrupt Descriptor Table` or `IDT`. The processor uses a unique number for recognizing the type of interruption or exception. This number is called - `vector number`. A vector number is an index in the `IDT`. There is limited amount of the vector numbers and it can be from `0` to `255`. You can note the following range-check upon the vector number within the Linux kernel source-code:
 
 ```C
