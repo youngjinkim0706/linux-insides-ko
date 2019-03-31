@@ -50,14 +50,12 @@ The first - 외부 Interrupt들은 `Local APIC` 또는 `Local APIC`와 연결된
 * `Traps`
 * `Aborts`
 
+`fault`는 "faulty" 명령어(이 오류는 수정할 수 있습니다)가 실행되기 전에 보고되는 예외입니다. 오류가 수정되면, `fault`는 interrupt 된 프로그램을 다시 시작합니다.  
+다음은 `trap`입니다. `trap`은 `trap` 명령어의 실행에 따라 즉시 보고되는 예외입니다. `trap`은 `fault`와 마찬가지로 interrupt된 프로그램을 다시 실행 시킬 수 있게합니다.  
+마지막으로, `abort`는 이 예외를 발생시킨 명령어를 보고하지 않는 예외입니다. 그리고 `abort`는 interrupt 된 프로그램의 재실행을 허락하지 않습니다. 
 
-A `fault` is an exception reported before the execution of a "faulty" instruction (which can then be corrected). If corrected, it allows the interrupted program to be resume.
 
-Next a `trap` is an exception which is reported immediately following the execution of the `trap` instruction. Traps also allow the interrupted program to be continued just as a `fault` does.
-
-Finally an `abort` is an exception that does not always report the exact instruction which caused the exception and does not allow the interrupted program to be resumed.
-
-Also we already know from the previous [part](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-3.html) that interrupts can be classified as `maskable` and `non-maskable`. Maskable interrupts are interrupts which can be blocked with the two following instructions for `x86_64` - `sti` and `cli`. We can find them in the Linux kernel source code:
+우리는 이미 이전 [부분](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-3.html)에서 interrupt들이 `maskable`과 `non-maskable`로 구분 될 수 있다는 것을 배웠습니다. Maskable interrupt는 `x86_64`구조에서 다음과 같은 두개에 명령어에 의해 차단 될 수 있는 interrupt입니다 - `sti`, `cli`. 이와 관련된 코드들을 리눅스 커널에서 찾을 수 있습니다. 
 
 ```C
 static inline void native_irq_disable(void)
@@ -74,10 +72,9 @@ static inline void native_irq_enable(void)
         asm volatile("sti": : :"memory");
 }
 ```
+이 두 명령어는 interrupt 레지스터 내부의 `IF`(Interrupt Flag) 플래그 비트를 수정합니다. `sti` 명령어는 `IF` 플래그를 설정(1)하고, `cli` 명령어는 `IF` 플래그를 지웁니다(0). Non-maskable interrupt들은 항상 보고됩니다. 보통 하드웨어의 실패는 non-maskable interrupt로 맵핑됩니다.
 
-These two instructions modify the `IF` flag bit within the interrupt register. The `sti` instruction sets the `IF` flag and the `cli` instruction clears this flag. Non-maskable interrupts are always reported. Usually any failure in the hardware is mapped to such non-maskable interrupts.
-
-If multiple exceptions or interrupts occur at the same time, the processor handles them in order of their predefined priorities. We can determine the priorities from the highest to the lowest in the following table:
+만약 다중의 예와나 interrupt들이 동시에 발생하면, 프로세서는 이것들을 미리 정의되어있는 우선순위의 순서대로 처리합니다. 아래 표에 나와있듯, 가장 높은 우선순위부터 가장 낮은 우선순위를 아래 표에서 확인할 수 있습니다:
 
 ```
 +----------------------------------------------------------------+
