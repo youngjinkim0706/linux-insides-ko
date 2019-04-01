@@ -131,7 +131,7 @@ static inline void native_irq_enable(void)
 +--------------+-------------------------------------------------+
 ```
 
-Now that we know a little about the various types of interrupts and exceptions, it is time to move on to a more practical part. We start with the description of the `Interrupt Descriptor Table`. As mentioned earlier, the `IDT` stores entry points of the interrupts and exceptions handlers. The `IDT` is similar in structure to the `Global Descriptor Table` which we saw in the second part of the [Kernel booting process](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-2.html). But of course it has some differences. Instead of `descriptors`, the `IDT` entries are called `gates`. It can contain one of the following gates:
+지금까지 다양한 종류의 interrupts와 예외에 대해 가볍게 살펴봤다면, 이제는 좀 더 실용적인 부분으로 넘어갈 차례입니다. `Interrupt Descriptor Table`을 먼저 알아보겠습니다. 이전에 언급했듯이, `IDT`는 interrupt들과 예외 핸들러들의 엔트리 포인트를 저장합니다. `IDT`는 [Kernel booting process](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-2.html)의 두번째 부분에서 봤던 `Global Descriptor Table`과 비슷한 구조를 가지고 있습니다. 물론 차이점도 존재합니다. `descriptors` 대산, `IDT` 엔트리들은 `gates`라고 불립니다. `gates`는 다음 게이트 들 중 하나를 포함할 수 있습니다:
 
 * Interrupt gates
 * Task gates
